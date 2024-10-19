@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import './App.css';
+import { socket } from './Socket';
 
 interface coordinates {
   x: number;
@@ -8,6 +9,8 @@ interface coordinates {
 }
 function App() {
   const [position, setPosition] = useState<coordinates>({ x: 0, y: 0, size: 1 });
+  const [isConnected, setIsConnected] = useState(socket.connected);
+  const [events, setEvents] = useState<any[]>([]);
 
   const handleArrowKeyEvent = useCallback(
     (e: KeyboardEvent) => {
@@ -47,6 +50,30 @@ function App() {
   }, []);
 
   useEffect(() => {
+    function onConnect() {
+      setIsConnected(true);
+    }
+
+    function onDisconnect() {
+      setIsConnected(false);
+    }
+
+    function onEvent(value: any) {
+      setEvents((previous) => [...previous, value]);
+    }
+
+    socket.on('connect', onConnect);
+    socket.on('disconnect', onDisconnect);
+    socket.on('event', onEvent);
+
+    return () => {
+      socket.off('connect', onConnect);
+      socket.off('disconnect', onDisconnect);
+      socket.off('event', onEvent);
+    };
+  }, []);
+
+  useEffect(() => {
     document.addEventListener('keydown', handleArrowKeyEvent);
     document.addEventListener('wheel', handleScrollEvent, {
       passive: false
@@ -69,6 +96,22 @@ function App() {
       }}
     >
       <div className={`w-10 h-10 relative rounded-full bg-red-500`}></div>
+      <div>
+        <p>{isConnected ? 'Connected' : 'Disconnected'}</p>
+        <ul>
+          {events.map((event, index) => (
+            <li key={index}>{event}</li>
+          ))}
+        </ul>
+
+        <button
+          onClick={() => {
+            socket.emit('hello', 'Hello, world!');
+          }}
+        >
+          Enviar
+        </button>
+      </div>
     </div>
   );
 }
